@@ -14,7 +14,7 @@ the results can be saved when prompted at the end of the program. A .csv file wi
 Any positive fluroescence values can be considered significant. Brightfield values will typically be negative as the electrodes tend to darken durring collection. This is normal.
 
 ## User Defined Settings:
-###Outputs:
+Outputs:
 debug: 
   type:bool
   if True:
@@ -32,7 +32,7 @@ show_plots:
   if True:
     displays the fancy_plot function output which includes peaks, a moving average trendline, and the mean IF intensity.
 
-###Preset settings:
+Preset settings:
 min_diameter:
   type: int
   the minnimum diameter (in pixels) that the algorithm will search for. The initial circle van be viewed in the first plot if debug mode is turned on. This circle should be aligned with the outer edge of the inner electrode. 
