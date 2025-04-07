@@ -1,7 +1,6 @@
-# gridquant
-Immunofluorescence Quantification of Dielectrophoresis
+# gridquant (Immunofluorescence Quantification of Dielectrophoresis)
 
-##Requirements:
+## Requirements:
 most current version was tested in python v 3.13.1
 -should work in all python versions 3.10 and later.
 included in requirements.txt (can be installed using "py -m pip install -r requirements.txt"
@@ -17,6 +16,7 @@ Other dependencies (generally included in standard python installations):
 - os
 - csv
 
+## Usage:
 This software is used to quantify images with fluorescence signals in a regular quare grid. Presets are included for imaging C2-C5 DEP chips manufactured at Oregon Health & Science University by the laboratory of Dr. Stuart Ibsen. Presets also include the use of Zeiss microscopes with a 5x obsective imaged using an Zeiss Axiocam 506 or Kinetix22 camera. Additional presets can be configurated in the user defined settings.
 ##General Usage:
 Save images as CZI files.
@@ -31,7 +31,7 @@ The results can be saved when prompted at the end of the program. A .csv file wi
 Any positive fluroescence values can be considered significant. Brightfield values will typically be negative as the electrodes tend to darken durring collection. This is normal.
 
 ## User Defined Settings:
-Outputs:
+### Outputs:
 - debug: 
   - type:bool
   - if True:
@@ -49,7 +49,7 @@ Outputs:
   - if True:
     displays the fancy_plot function output which includes peaks, a moving average trendline, and the mean IF intensity.
 
-Preset settings:
+### Preset settings:
 - min_diameter:
   - type: int
   - the minnimum diameter (in pixels) that the algorithm will search for. The initial circle van be viewed in the first plot if debug mode is turned on. This circle should be aligned with the outer edge of the inner electrode. 
@@ -75,6 +75,7 @@ Preset settings:
   - type: float
   - variables used to control circle selection. More info can be found here: https://docs.opencv.org/3.4/d4/d70/tutorial_hough_circle.html
 
+## Notes:
 A sample directory is included taken on a zeiss imager D2 microscope with an axiocam 506. Use the preset "C5_axio" to analyze. The two included files are identical and should yield the same values.
 
 For more information, bug reports, and other advice, contact Jason Ware (warej@ohsu.edu)
