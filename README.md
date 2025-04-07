@@ -1,6 +1,22 @@
 # gridquant
 Immunofluorescence Quantification of Dielectrophoresis
 
+##Requirements:
+most current version was tested in python v 3.13.1
+-should work in all python versions 3.10 and later.
+included in requirements.txt (can be installed using "py -m pip install -r requirements.txt"
+- czifile==2019.7.2.1
+- opencv-python==4.11.0.86
+- numpy==2.2.3
+- matplotlib==3.10.0
+- scipy==1.15.2
+- DateTime==5.5
+
+Other dependencies (generally included in standard python installations):
+- tkinter
+- os
+- csv
+
 This software is used to quantify images with fluorescence signals in a regular quare grid. Presets are included for imaging C2-C5 DEP chips manufactured at Oregon Health & Science University by the laboratory of Dr. Stuart Ibsen. Presets also include the use of Zeiss microscopes with a 5x obsective imaged using an Zeiss Axiocam 506 or Kinetix22 camera. Additional presets can be configurated in the user defined settings.
 ##General Usage:
 Save images as CZI files.
