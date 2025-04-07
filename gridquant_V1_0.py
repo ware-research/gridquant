@@ -1,7 +1,7 @@
 '''
 MIT License
 
-Copyright (c) 2024, Oregon Health & Science Univeristy
+Copyright (c) 2025, Oregon Health & Science Univeristy
 
 Contributor(s): Jason Ware (warej@ohsu.edu)
 
