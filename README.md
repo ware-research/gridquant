@@ -8,8 +8,9 @@ run the .py script
 input selection into command prompt window and press enter
 - inputting "f" allows the user to select a single file
 - inputting "d" allows the user to select a directory. Any .czi files in any subdirectory will be opened and analyzed. Progress is shown when each file is loaded.
+
 The software will find all circles in the specified range, and find the most common grid shape. any unaligned circles are removed. Then any missing circles are added in. The result is a forced grid that covers every electrode. Outliers (bright or dark electrodes) are removed by user-defined statistics upon analysis.
-the results can be saved when prompted at the end of the program. A .csv file will be saved to the directory opened containing the final summary plot.
+The results can be saved when prompted at the end of the program. A .csv file will be saved to the directory opened containing the final summary plot.
 
 Any positive fluroescence values can be considered significant. Brightfield values will typically be negative as the electrodes tend to darken durring collection. This is normal.
 
