@@ -16,48 +16,48 @@ Any positive fluroescence values can be considered significant. Brightfield valu
 
 ## User Defined Settings:
 Outputs:
-debug: 
-  type:bool
-  if True:
+- debug: 
+  - type:bool
+  - if True:
     shows fine detail of plotting, circle registration (removal and addition), image size output, distance to grid concensus, raw data plot and other busy information.
-show_final_registration:
-  type:bool
-  if True:
+- show_final_registration:
+  - type:bool
+  - if True:
     shows final circle registration plot which displays found circles in green, removed circles in red, and added circles in blue. Also displays snake index identifiers on each circle.
-show_if_images:
-  type:bool
-  if True:
+- show_if_images:
+  - type:bool
+  - if True:
     displays immunofluorescence images for each channel including the ROI for quantification and background
-show_plots:
-  type:bool
-  if True:
+- show_plots:
+  - type:bool
+  - if True:
     displays the fancy_plot function output which includes peaks, a moving average trendline, and the mean IF intensity.
 
 Preset settings:
-min_diameter:
-  type: int
-  the minnimum diameter (in pixels) that the algorithm will search for. The initial circle van be viewed in the first plot if debug mode is turned on. This circle should be aligned with the outer edge of the inner electrode. 
-max_diameter:
-  type: int
-  the maximum diameter (in pixels) that the algorithm will search for.
-roi_inner
-  type: int
-  the distance from the original circle that the signal ROI inner bounds will be placed. Typically negative and must be less than roi_outer.
-roi_outer
-  type: int
-  the distance from the original circle that the signal ROI outer bounds will be placed. Typically negative and must be greater than roi_inner.
-bckg_inner
-  type: int
-  the distance from the original circle that the background ROI inner bounds will be placed. Typically positive and must be less than bckg_outer. The background ROI should typically cover most of the interior of the auxilliary electrodes
-roi_outer
-  type: int
-  the distance from the original circle that the background ROI outer bounds will be placed. Typically negative and must be greater than bckg_inner. The background ROI should typically cover most of the interior of the auxilliary electrodes
-moving_avg_n
-  type: int
-  the range of moving averages used to define the line drawn on the fancy_plot output and to remove outliers. This does impact output values even if show_plots is False as outliers are removed.
-p1, p2, dp:
-  type: float
-  variables used to control circle selection. More info can be found here: https://docs.opencv.org/3.4/d4/d70/tutorial_hough_circle.html
+- min_diameter:
+  - type: int
+  - the minnimum diameter (in pixels) that the algorithm will search for. The initial circle van be viewed in the first plot if debug mode is turned on. This circle should be aligned with the outer edge of the inner electrode. 
+- max_diameter:
+  - type: int
+  - the maximum diameter (in pixels) that the algorithm will search for.
+- roi_inner
+  - type: int
+  - the distance from the original circle that the signal ROI inner bounds will be placed. Typically negative and must be less than roi_outer.
+- roi_outer
+  - type: int
+  - the distance from the original circle that the signal ROI outer bounds will be placed. Typically negative and must be greater than roi_inner.
+- bckg_inner
+  - type: int
+  - the distance from the original circle that the background ROI inner bounds will be placed. Typically positive and must be less than bckg_outer. The background ROI should typically cover most of the interior of the auxilliary electrodes
+- roi_outer
+  - type: int
+  - the distance from the original circle that the background ROI outer bounds will be placed. Typically negative and must be greater than bckg_inner. The background ROI should typically cover most of the interior of the auxilliary electrodes
+- moving_avg_n
+  - type: int
+  - the range of moving averages used to define the line drawn on the fancy_plot output and to remove outliers. This does impact output values even if show_plots is False as outliers are removed.
+- p1, p2, dp:
+  - type: float
+  - variables used to control circle selection. More info can be found here: https://docs.opencv.org/3.4/d4/d70/tutorial_hough_circle.html
 
 A sample directory is included taken on a zeiss imager D2 microscope with an axiocam 506. Use the preset "C5_axio" to analyze. The two included files are identical and should yield the same values.
 
