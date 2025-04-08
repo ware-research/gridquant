@@ -1,4 +1,4 @@
-r# gridquant (Immunofluorescence Quantification of Dielectrophoresis)
+# gridquant (Immunofluorescence Quantification of Dielectrophoresis)
 
 ## Requirements:
 most current version was tested in python v 3.13.1
