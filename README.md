@@ -1,4 +1,4 @@
-# gridquant (Immunofluorescence Quantification of Dielectrophoresis)
+r# gridquant (Immunofluorescence Quantification of Dielectrophoresis)
 
 ## Requirements:
 most current version was tested in python v 3.13.1
@@ -76,9 +76,9 @@ Any positive fluroescence values can be considered significant. Brightfield valu
   - variables used to control circle selection. More info can be found here: https://docs.opencv.org/3.4/d4/d70/tutorial_hough_circle.html
 
 ## Notes:
-A sample directory is included taken on a zeiss imager D2 microscope with an axiocam 506. Use the preset "C5_axio" to analyze. The two included files are identical and should yield the same values.
+A sample directory is included taken on a zeiss imager D2 microscope with an axiocam 506. Use the preset "C5_axio" to analyze. The two included files are identical and should yield the same values. Microscope details and experiment parameters are available upon  reasonable request.
 
-For more information, bug reports, and other advice, contact Jason Ware (warej@ohsu.edu)
-Contact ibsen@ohsu.edu or warej@ohsu.edu for research collaboration access to dielectrophoresis devices. 
+For more information, bug reports, suggestions, and other advice, contact Jason Ware (warej@ohsu.edu)
 
+For interest in research collaborations and device access, contact ibsen@ohsu.edu or warej@ohsu.edu.
 
