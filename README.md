@@ -78,6 +78,8 @@ Any positive fluroescence values can be considered significant. Brightfield valu
 ## Notes:
 A sample directory is included taken on a zeiss imager D2 microscope with an axiocam 506. Use the preset "C5_axio" to analyze. The two included files are identical and should yield the same values. Microscope details and experiment parameters are available upon  reasonable request.
 
+If you are using Zeiss Zen v3.9 or newer, .czi files are stored with zstandard compression, however, this software only functions with uncompressed CZI images. It is suggested that compression is turned off in the settings of zen, but already compressed images can be converted with this tool: https://github.com/ZEISS/czicompress/releases/download/v1.1.0/CziShrink_1.1.0+1998995_win-x64.zip
+
 For more information, bug reports, suggestions, and other advice, contact Jason Ware (warej@ohsu.edu)
 
 For interest in research collaborations and device access, contact ibsen@ohsu.edu or warej@ohsu.edu.
