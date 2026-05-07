@@ -43,9 +43,9 @@ from datetime import datetime  # Import datetime for timestamp
 #***********************************************************************************************************
 #**********************************User defined settings:***************************************************
 #***********************************************************************************************************
-settings = "C5_kinetix" #options: c3_kinetix, c2_kinetix, c5_axio
+settings = "b3_axio" #options: c3_kinetix, c2_kinetix, c5_axio, b3_axio
 
-debug = False
+debug = True
 show_final_registration = False
 show_if_images = True
 show_plots = True
@@ -55,8 +55,22 @@ global bitdepth, min_diameter, max_diameter, roi_inner, roi_outer, bckg_inner, b
 
 #user preset profiles:
 match settings.lower():
+    case "b3_axio":
+        print("loading preset for b3_axio")
+        array_bypass = True # set to true if there is only one electrode
+        min_diameter = 5
+        max_diameter = 60
+        roi_inner = -20
+        roi_outer = 5
+        bckg_inner = 120
+        bckg_outer = 175
+        moving_avg_n = 10
+        p1 = 50
+        p2 = 20
+        dp = 1.0
     case "c5_kinetix":
         print("loading preset for c3_kinetix")
+        array_bypass = False
         min_diameter = 16
         max_diameter = 20
         roi_inner = -15
@@ -70,6 +84,7 @@ match settings.lower():
 
     case "c2_kinetix":
         print("loading preset for c2_kinetix")
+        array_bypass = False
         min_diameter = 20
         max_diameter = 30
         roi_inner = -20
@@ -83,6 +98,7 @@ match settings.lower():
 
     case "c5_axio":
         print("loading preset for c5_axio")
+        array_bypass = False
         min_diameter = 16
         max_diameter = 20
         roi_inner = -15
@@ -445,46 +461,86 @@ def quantify_fluorescence(file_path, circles):
             else:
                 print(f"Processing Channel {channel + 1}...")
             channel_averages = []
+
+            if array_bypass == False:
+                for x, y, r, idx in zip(circles[0], circles[1], circles[2], circles[5]):
+                    global roi_inner
+                    if roi_inner <= -r:
+                        roi_inner = -r
+                    outer_radius = r + roi_outer
+                    inner_radius = r + roi_inner
+                    background_outer_radius = r + bckg_outer
+                    background_inner_radius = r + bckg_inner
+                    
+                    roi_mask = np.zeros_like(fluorescence_image, dtype=np.uint16)
+                    cv2.circle(roi_mask, (int(x), int(y)), int(round(outer_radius, 0)), bitdepth, thickness=-1)
+                    cv2.circle(roi_mask, (int(x), int(y)), int(round(inner_radius, 0)), 0, thickness=-1)
+
+                    background_mask = np.zeros_like(fluorescence_image, dtype=np.uint16)
+                    cv2.circle(background_mask, (int(x), int(y)), int(round(background_outer_radius, 0)), bitdepth, thickness=-1)
+                    cv2.circle(background_mask, (int(x), int(y)), int(round(background_inner_radius, 0)), 0, thickness=-1)
+
+                    roi_values = fluorescence_image[roi_mask == bitdepth]
+                    background_values = fluorescence_image[background_mask == bitdepth]
+
+                    if roi_values.size > 0:
+                        average_fluorescence = np.mean(roi_values)
+                    else:
+                        average_fluorescence = np.nan 
+
+                    if background_values.size > 0:
+                        average_background = np.mean(background_values)
+                    else:
+                        average_background = np.nan 
+
+                    corrected_fluorescence = average_fluorescence - average_background
+                    channel_averages.append((idx, corrected_fluorescence))
+                    
+                    cv2.circle(fluorescence_image, (int(x), int(y)), int(round(outer_radius, 0)), (0, bitdepth, 0), 1)
+                    cv2.circle(fluorescence_image, (int(x), int(y)), int(round(inner_radius, 0)), (0, bitdepth, 0), 1)
+                    cv2.circle(fluorescence_image, (int(x), int(y)), int(round(background_outer_radius, 0)), (bitdepth, 0, 0), 1, 2)
+                    cv2.circle(fluorescence_image, (int(x), int(y)), int(round(background_inner_radius, 0)), (bitdepth, 0, 0), 1, 2)
             
-            for x, y, r, idx in zip(circles[0], circles[1], circles[2], circles[5]):
-                global roi_inner
-                if roi_inner <= -r:
-                    roi_inner = -r
-                outer_radius = r + roi_outer
-                inner_radius = r + roi_inner
-                background_outer_radius = r + bckg_outer
-                background_inner_radius = r + bckg_inner
+            elif array_bypass == True:
+                for x, y, r in circles:
+                    outer_radius = r + roi_outer
+                    inner_radius = r + roi_inner
+                    background_outer_radius = r + bckg_outer
+                    background_inner_radius = r + bckg_inner
+                    
+                    roi_mask = np.zeros_like(fluorescence_image, dtype=np.uint16)
+                    cv2.circle(roi_mask, (int(x), int(y)), int(round(outer_radius, 0)), bitdepth, thickness=-1)
+                    cv2.circle(roi_mask, (int(x), int(y)), int(round(inner_radius, 0)), 0, thickness=-1)
+
+                    background_mask = np.zeros_like(fluorescence_image, dtype=np.uint16)
+                    cv2.circle(background_mask, (int(x), int(y)), int(round(background_outer_radius, 0)), bitdepth, thickness=-1)
+                    cv2.circle(background_mask, (int(x), int(y)), int(round(background_inner_radius, 0)), 0, thickness=-1)
+
+                    roi_values = fluorescence_image[roi_mask == bitdepth]
+                    background_values = fluorescence_image[background_mask == bitdepth]
+
+                    if roi_values.size > 0:
+                        average_fluorescence = np.mean(roi_values)
+                    else:
+                        average_fluorescence = np.nan 
+
+                    if background_values.size > 0:
+                        average_background = np.mean(background_values)
+                    else:
+                        average_background = np.nan 
+
+                    corrected_fluorescence = average_fluorescence - average_background
+                    #print("line 533:", x, y, corrected_fluorescence)
+                    channel_averages.append((x,y,corrected_fluorescence))
+                    #print("line 535:", channel_averages)
+                    
+                    cv2.circle(fluorescence_image, (int(x), int(y)), int(round(outer_radius, 0)), (0, bitdepth, 0), 1)
+                    cv2.circle(fluorescence_image, (int(x), int(y)), int(round(inner_radius, 0)), (0, bitdepth, 0), 1)
+                    cv2.circle(fluorescence_image, (int(x), int(y)), int(round(background_outer_radius, 0)), (bitdepth, 0, 0), 1, 2)
+                    cv2.circle(fluorescence_image, (int(x), int(y)), int(round(background_inner_radius, 0)), (bitdepth, 0, 0), 1, 2)
                 
-                roi_mask = np.zeros_like(fluorescence_image, dtype=np.uint16)
-                cv2.circle(roi_mask, (int(x), int(y)), int(round(outer_radius, 0)), bitdepth, thickness=-1)
-                cv2.circle(roi_mask, (int(x), int(y)), int(round(inner_radius, 0)), 0, thickness=-1)
-
-                background_mask = np.zeros_like(fluorescence_image, dtype=np.uint16)
-                cv2.circle(background_mask, (int(x), int(y)), int(round(background_outer_radius, 0)), bitdepth, thickness=-1)
-                cv2.circle(background_mask, (int(x), int(y)), int(round(background_inner_radius, 0)), 0, thickness=-1)
-
-                roi_values = fluorescence_image[roi_mask == bitdepth]
-                background_values = fluorescence_image[background_mask == bitdepth]
-
-                if roi_values.size > 0:
-                    average_fluorescence = np.mean(roi_values)
-                else:
-                    average_fluorescence = np.nan 
-
-                if background_values.size > 0:
-                    average_background = np.mean(background_values)
-                else:
-                    average_background = np.nan 
-
-                corrected_fluorescence = average_fluorescence - average_background
-                channel_averages.append((idx, corrected_fluorescence))
-                
-                cv2.circle(fluorescence_image, (int(x), int(y)), int(round(outer_radius, 0)), (0, bitdepth, 0), 1)
-                cv2.circle(fluorescence_image, (int(x), int(y)), int(round(inner_radius, 0)), (0, bitdepth, 0), 1)
-                cv2.circle(fluorescence_image, (int(x), int(y)), int(round(background_outer_radius, 0)), (bitdepth, 0, 0), 1, 2)
-                cv2.circle(fluorescence_image, (int(x), int(y)), int(round(background_inner_radius, 0)), (bitdepth, 0, 0), 1, 2)
-            
             fluorescence_averages.append(channel_averages)
+            #print("line 543:" + str(fluorescence_averages))
             
             if show_if_images:
                 plt.figure(figsize=(10, 8))
@@ -492,19 +548,20 @@ def quantify_fluorescence(file_path, circles):
                 plt.title(f'Fluorescence Channel {channel + 1} with ROIs and Background')
                 plt.show()
         if debug:
-            plt.figure(figsize=(12, 10))
-            for channel, averages in enumerate(fluorescence_averages):
-                indices, values = zip(*averages) 
-                plt.subplot(num_channels, 1, channel + 1)
-                plt.plot(indices, values, 'go', label=f'Channel {channel + 1}')
-                plt.xlabel('Snake Index')
-                plt.ylabel('Corrected Average Fluorescence')
-                plt.title(f'Corrected Average Fluorescence vs. Snake Index for Channel {channel + 1}')
-                plt.legend()
+            if array_bypass == False:
+                plt.figure(figsize=(12, 10))
+                for channel, averages in enumerate(fluorescence_averages):
+                    indices, values = zip(*averages) 
+                    plt.subplot(num_channels, 1, channel + 1)
+                    plt.plot(indices, values, 'go', label=f'Channel {channel + 1}')
+                    plt.xlabel('Snake Index')
+                    plt.ylabel('Corrected Average Fluorescence')
+                    plt.title(f'Corrected Average Fluorescence vs. Snake Index for Channel {channel + 1}')
+                    plt.legend()
 
-            plt.tight_layout()
-            plt.show()
-
+                plt.tight_layout()
+                plt.show()
+        print("line 565:" + str(fluorescence_averages))
         return np.array(fluorescence_averages)
 
 def fancy_plot(fluorescence_averages):
@@ -622,14 +679,23 @@ if __name__ == "__main__":
             print(f"Processing file {i}/{total_files}: {file_path}")
             brightfield_image, circles = process_czi_image(file_path, min_diameter, max_diameter)
             draw_circles_and_display(brightfield_image, circles)
-            circles, removed, nd_mean = remove_outliers(circles)
-            circles, added = fill_missing_points(circles, nd_mean)
-            organized_circles = organize_circles(circles, nd_mean)
-            snaked_circles = snake_circles(organized_circles) 
-            plot_final_register(brightfield_image, snaked_circles, added, removed)
+            if array_bypass == False:
+                circles, removed, nd_mean = remove_outliers(circles)
+                circles, added = fill_missing_points(circles, nd_mean)
+                organized_circles = organize_circles(circles, nd_mean)
+                snaked_circles = snake_circles(organized_circles) 
+                plot_final_register(brightfield_image, snaked_circles, added, removed)
+            elif array_bypass == True:
+                snaked_circles = circles
             fluorescence_averages = quantify_fluorescence(file_path, snaked_circles)
-            avg_values = fancy_plot(fluorescence_averages) 
-            all_avg_values.append((file_path, avg_values))  
+            #print("line690:" + str(fluorescence_averages))
+            if array_bypass == False:
+                avg_values = fancy_plot(fluorescence_averages) 
+                all_avg_values.append((file_path, avg_values))  
+            elif array_bypass == True:
+                print("fluorescence average for image:" + str(fluorescence_averages))
+                avg_values = fluorescence_averages
+                all_avg_values.append((file_path, fluorescence_averages))
 
         print("\nSummary of Average Fluorescence Values:")
         for file_path, avg_values in all_avg_values:
