@@ -45,10 +45,10 @@ from datetime import datetime  # Import datetime for timestamp
 #***********************************************************************************************************
 settings = "b3_kinetix" #options: c3_kinetix, c2_kinetix, c5_axio
 
-debug = False
+debug = True
 show_final_registration = False
-show_if_images = False
-show_plots = True
+show_if_images = True
+show_plots = False
 
 #dont edit this line:
 global is_array, bitdepth, min_diameter, max_diameter, roi_inner, roi_outer, bckg_inner, bckg_outer, moving_avg_n, p1, p2, dp
@@ -98,12 +98,12 @@ match settings.lower():
         dp = 1.0
     
     case "b3_kinetix":
-        print("loading preset for c5_axio")
+        print("loading preset for b3_kinetix")
         is_array = False
-        min_diameter = 20
+        min_diameter = 30
         max_diameter = 40
-        roi_inner = -20
-        roi_outer = 5
+        roi_inner = -8
+        roi_outer = 0
         bckg_inner = 55
         bckg_outer = 100
         moving_avg_n = 2
