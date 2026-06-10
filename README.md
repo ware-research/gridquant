@@ -4,9 +4,9 @@
 most current version was tested in python v 3.13.1
 -should work in all python versions 3.10 and later.
 included in requirements.txt (can be installed using "py -m pip install -r requirements.txt"
-- czifile==2019.7.2.1
+- czifile==2019.7.2.3
 - opencv-python==4.11.0.86
-- numpy==2.2.3
+- numpy==2.2.2
 - matplotlib==3.10.0
 - scipy==1.15.2
 - DateTime==5.5
