@@ -1,0 +1,15 @@
+move the downloaded file to your documents
+open a terminal window
+	cmd+space > "terminal" > enter
+in the terminal, navigate to the downloaded file
+	cd documents
+	cd gridquant
+run the following commands
+	chmod +x setup_mac.sh
+	chmod +x gridquant_macos_run.sh
+	./setup_mac.sh
+wait for the terminal to finish installing
+double click gridquant_macos_run.sh to run the software
+do not more files around
+you can make a shortcut to the gridquant_macos_run.sh file and move it wherever you want
+
