@@ -1,0 +1,67 @@
+{
+  "c5_kinetix": {
+    "is_array": true,
+    "min_diameter": 4,
+    "max_diameter": 10,
+    "roi_inner": -3,
+    "roi_outer": 4,
+    "bckg_inner": 25,
+    "bckg_outer": 35,
+    "moving_avg_n": 10,
+    "p1": 50,
+    "p2": 20,
+    "dp": 1.0
+  },
+  "c2_kinetix": {
+    "is_array": true,
+    "min_diameter": 20,
+    "max_diameter": 30,
+    "roi_inner": -20,
+    "roi_outer": -7,
+    "bckg_inner": 30,
+    "bckg_outer": 50,
+    "moving_avg_n": 10,
+    "p1": 50,
+    "p2": 20,
+    "dp": 1.0
+  },
+  "c5_axio": {
+    "is_array": true,
+    "min_diameter": 16,
+    "max_diameter": 20,
+    "roi_inner": -15,
+    "roi_outer": -5,
+    "bckg_inner": 25,
+    "bckg_outer": 45,
+    "moving_avg_n": 2,
+    "p1": 50,
+    "p2": 20,
+    "dp": 1.0
+  },
+  "b3_kinetix": {
+    "is_array": false,
+    "min_diameter": 20,
+    "max_diameter": 30,
+    "roi_inner": -9,
+    "roi_outer": 2,
+    "bckg_inner": 55,
+    "bckg_outer": 100,
+    "moving_avg_n": 2,
+    "p1": 50,
+    "p2": 10,
+    "dp": 1.0
+  },
+  "b3_axio": {
+    "is_array": false,
+    "min_diameter": 20,
+    "max_diameter": 30,
+    "roi_inner": -9,
+    "roi_outer": 2,
+    "bckg_inner": 55,
+    "bckg_outer": 100,
+    "moving_avg_n": 2,
+    "p1": 50,
+    "p2": 10,
+    "dp": 1.0
+  }
+}

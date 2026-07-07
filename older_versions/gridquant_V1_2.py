@@ -43,7 +43,7 @@ from datetime import datetime  # Import datetime for timestamp
 #***********************************************************************************************************
 #**********************************User defined settings:***************************************************
 #***********************************************************************************************************
-settings = "b3_kinetix" #options: c3_kinetix, c2_kinetix, c5_axio
+settings = "c5_kinetix" #options: c3_kinetix, c2_kinetix, c5_axio
 
 debug = True
 show_final_registration = False

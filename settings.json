@@ -1,0 +1,7 @@
+{
+  "default_profile": "b3_kinetix",
+  "debug": false,
+  "show_final_registration": false,
+  "show_if_images": false,
+  "show_plots": false
+}

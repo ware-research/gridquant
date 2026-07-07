@@ -39,78 +39,98 @@ from scipy.signal import find_peaks
 from scipy.stats import t
 import csv 
 import os
+import json
 from datetime import datetime  # Import datetime for timestamp
 
 #***********************************************************************************************************
 #**********************************User defined settings:***************************************************
 #***********************************************************************************************************
-settings = "c5_kinetix" #options: c3_kinetix, c2_kinetix, c5_axio
+# Load UI/debug settings from settings.json (optional)
+def _load_settings_file(settings_file='settings.json'):
+    base = os.path.dirname(os.path.abspath(__file__))
+    path = os.path.join(base, settings_file)
+    if not os.path.exists(path):
+        return {}
+    try:
+        with open(path, 'r') as f:
+            return json.load(f)
+    except Exception:
+        return {}
 
-debug = True
-show_final_registration = True
-show_if_images = True
-show_plots = True
+_settings = _load_settings_file()
 
-#dont edit this line:
+# toggles with defaults
+debug = bool(_settings.get('debug', False))
+show_final_registration = bool(_settings.get('show_final_registration', False))
+show_if_images = bool(_settings.get('show_if_images', False))
+show_plots = bool(_settings.get('show_plots', False))
+
+# dont edit this line:
 global is_array, bitdepth, min_diameter, max_diameter, roi_inner, roi_outer, bckg_inner, bckg_outer, moving_avg_n, p1, p2, dp
 
-#user preset profiles:
-match settings.lower():
-    case "c5_kinetix":
-        print("loading preset for c5_kinetix")
-        is_array = True
-        min_diameter = 4
-        max_diameter = 10
-        roi_inner = -3
-        roi_outer = 4
-        bckg_inner = 25
-        bckg_outer = 35
-        moving_avg_n = 10
-        p1 = 50
-        p2 = 20
-        dp = 1.0    
+# Load presets from JSON and allow interactive selection or editing
+def _load_presets_file(presets_file='presets.json'):
+    base = os.path.dirname(os.path.abspath(__file__))
+    path = os.path.join(base, presets_file)
+    if not os.path.exists(path):
+        return {}
+    with open(path, 'r') as f:
+        return json.load(f)
 
-    case "c2_kinetix":
-        print("loading preset for c2_kinetix")
-        is_array = True
-        min_diameter = 20
-        max_diameter = 30
-        roi_inner = -20
-        roi_outer = -7
-        bckg_inner = 30
-        bckg_outer = 50
-        moving_avg_n = 10
-        p1 = 50
-        p2 = 20
-        dp = 1.0
+def _cast_str_value(s):
+    s = str(s).strip()
+    if s.lower() in ('true', 'false'):
+        return s.lower() == 'true'
+    try:
+        if '.' in s:
+            return float(s)
+        return int(s)
+    except Exception:
+        return s
 
-    case "c5_axio":
-        print("loading preset for c5_axio")
-        is_array = True
-        min_diameter = 16
-        max_diameter = 20
-        roi_inner = -15
-        roi_outer = -5
-        bckg_inner = 25
-        bckg_outer = 45
-        moving_avg_n = 2
-        p1 = 50
-        p2 = 20
-        dp = 1.0
-    
-    case "b3_kinetix":
-        print("loading preset for b3_kinetix")
-        is_array = False
-        min_diameter = 30
-        max_diameter = 40
-        roi_inner = -8
-        roi_outer = 0
-        bckg_inner = 55
-        bckg_outer = 100
-        moving_avg_n = 2
-        p1 = 50
-        p2 = 20
-        dp = 1.0
+presets = _load_presets_file()
+default_profile = 'b3_kinetix'
+if presets:
+    print('Available profiles:', ', '.join(presets.keys()))
+    sel = input(f"Select profile [{default_profile}] or type 'edit' for custom settings: ").strip()
+    if sel == '':
+        sel = default_profile
+
+    if sel.lower() == 'edit':
+        print("Enter settings as comma-separated key=value pairs (e.g. min_diameter=10,max_diameter=20,is_array=False)")
+        s = input('Settings: ').strip()
+        user = {}
+        for part in s.split(','):
+            if '=' in part:
+                k, v = part.split('=', 1)
+                user[k.strip()] = _cast_str_value(v.strip())
+        chosen = user
+        print('Using custom settings:', chosen)
+    else:
+        # accept exact or case-insensitive
+        if sel in presets:
+            chosen = presets[sel]
+        elif sel.lower() in presets:
+            chosen = presets[sel.lower()]
+        else:
+            print(f"Profile '{sel}' not found; using default '{default_profile}'")
+            chosen = presets.get(default_profile, {})
+else:
+    print('No presets file found; using built-in defaults')
+    chosen = {}
+
+# Apply chosen settings with sensible defaults
+is_array = chosen.get('is_array', False)
+min_diameter = int(chosen.get('min_diameter', 20))
+max_diameter = int(chosen.get('max_diameter', 30))
+roi_inner = int(chosen.get('roi_inner', -9))
+roi_outer = int(chosen.get('roi_outer', 2))
+bckg_inner = int(chosen.get('bckg_inner', 55))
+bckg_outer = int(chosen.get('bckg_outer', 100))
+moving_avg_n = int(chosen.get('moving_avg_n', 2))
+p1 = float(chosen.get('p1', 50))
+p2 = float(chosen.get('p2', 10))
+dp = float(chosen.get('dp', 1.0))
 #***********************************************************************************************************
 #**************Do not edit below this line unless you know what you're doing********************************
 #***********************************************************************************************************
