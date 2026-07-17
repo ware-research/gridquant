@@ -89,7 +89,7 @@ def _cast_str_value(s):
         return s
 
 presets = _load_presets_file()
-default_profile = 'b3_kinetix'
+default_profile = _settings.get('default_profile', 'b3_kinetix')
 if presets:
     print('Available profiles:', ', '.join(presets.keys()))
     sel = input(f"Select profile [{default_profile}] or type 'edit' for custom settings: ").strip()
