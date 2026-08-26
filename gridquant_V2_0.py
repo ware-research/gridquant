@@ -26,11 +26,8 @@ SOFTWARE.
 Please consider citing!
 '''
 
-import czifile
 import cv2
 import numpy as np
-from tkinter import Tk
-from tkinter.filedialog import askopenfilename
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from matplotlib.widgets import Slider
@@ -41,101 +38,57 @@ import csv
 import os
 import json
 from datetime import datetime  # Import datetime for timestamp
+import threading 
+from dataclasses import dataclass
+import czifile
+import xml.etree.ElementTree as ET
+
+@dataclass
+class ProcessingResult:
+    file_path: str
+    channel_names: list
+    avg_values: list
+    fluorescence_averages: object | None = None
+    brightfield_image: object | None = None
+    circles: object | None = None
+    snaked_circles: object | None = None
+    single_circle: object | None = None
+    added: object | None = None
+    removed: object | None = None
+    outlier_plot_data: dict | None = None
+    missing_plot_data: dict | None = None
+    fancy_plot_data: dict | None = None
+    roi_plot_data: dict | None = None
+
 
 #***********************************************************************************************************
 #**********************************User defined settings:***************************************************
 #***********************************************************************************************************
-# Load UI/debug settings from settings.json (optional)
-def _load_settings_file(settings_file='settings.json'):
-    base = os.path.dirname(os.path.abspath(__file__))
-    path = os.path.join(base, settings_file)
-    if not os.path.exists(path):
-        return {}
-    try:
-        with open(path, 'r') as f:
-            return json.load(f)
-    except Exception:
-        return {}
+    
+# Default runtime settings
+debug = False
+show_final_registration = False
+show_if_images = False
+show_plots = False
 
-_settings = _load_settings_file()
+is_array = False
+min_diameter = 20
+max_diameter = 30
+roi_inner = -9
+roi_outer = 2
+bckg_inner = 55
+bckg_outer = 100
+moving_avg_n = 2
+p1 = 50
+p2 = 10
+dp = 1.0
 
-# toggles with defaults
-debug = bool(_settings.get('debug', False))
-show_final_registration = bool(_settings.get('show_final_registration', False))
-show_if_images = bool(_settings.get('show_if_images', False))
-show_plots = bool(_settings.get('show_plots', False))
+bitdepth = 16384
 
-# dont edit this line:
-global is_array, bitdepth, min_diameter, max_diameter, roi_inner, roi_outer, bckg_inner, bckg_outer, moving_avg_n, p1, p2, dp
 
-# Load presets from JSON and allow interactive selection or editing
-def _load_presets_file(presets_file='presets.json'):
-    base = os.path.dirname(os.path.abspath(__file__))
-    path = os.path.join(base, presets_file)
-    if not os.path.exists(path):
-        return {}
-    with open(path, 'r') as f:
-        return json.load(f)
-
-def _cast_str_value(s):
-    s = str(s).strip()
-    if s.lower() in ('true', 'false'):
-        return s.lower() == 'true'
-    try:
-        if '.' in s:
-            return float(s)
-        return int(s)
-    except Exception:
-        return s
-
-presets = _load_presets_file()
-default_profile = _settings.get('default_profile', 'b3_kinetix')
-if presets:
-    print('Available profiles:', ', '.join(presets.keys()))
-    sel = input(f"Select profile [{default_profile}] or type 'edit' for custom settings: ").strip()
-    if sel == '':
-        sel = default_profile
-
-    if sel.lower() == 'edit':
-        print("Enter settings as comma-separated key=value pairs (e.g. min_diameter=10,max_diameter=20,is_array=False)")
-        s = input('Settings: ').strip()
-        user = {}
-        for part in s.split(','):
-            if '=' in part:
-                k, v = part.split('=', 1)
-                user[k.strip()] = _cast_str_value(v.strip())
-        chosen = user
-        print('Using custom settings:', chosen)
-    else:
-        # accept exact or case-insensitive
-        if sel in presets:
-            chosen = presets[sel]
-        elif sel.lower() in presets:
-            chosen = presets[sel.lower()]
-        else:
-            print(f"Profile '{sel}' not found; using default '{default_profile}'")
-            chosen = presets.get(default_profile, {})
-else:
-    print('No presets file found; using built-in defaults')
-    chosen = {}
-
-# Apply chosen settings with sensible defaults
-is_array = chosen.get('is_array', False)
-min_diameter = int(chosen.get('min_diameter', 20))
-max_diameter = int(chosen.get('max_diameter', 30))
-roi_inner = int(chosen.get('roi_inner', -9))
-roi_outer = int(chosen.get('roi_outer', 2))
-bckg_inner = int(chosen.get('bckg_inner', 55))
-bckg_outer = int(chosen.get('bckg_outer', 100))
-moving_avg_n = int(chosen.get('moving_avg_n', 2))
-p1 = float(chosen.get('p1', 50))
-p2 = float(chosen.get('p2', 10))
-dp = float(chosen.get('dp', 1.0))
 #***********************************************************************************************************
 #**************Do not edit below this line unless you know what you're doing********************************
 #***********************************************************************************************************
-
-bitdepth = 16384
 
 def detect_circles(image, min_diameter, max_diameter):
     blurred = cv2.medianBlur(image, 5)  # Blur the grayscale image to reduce noise
@@ -203,65 +156,30 @@ def process_czi_image(file_path, min_diameter, max_diameter):
         #organized_circles = organize_circles(circles)
 
         return brightfield_image, circles
+    
+def get_czi_channel_names(file_path):
 
-def select_path():
-    Tk().withdraw()  # We don't want a full GUI, so keep the root window from appearing
-    choice = input("Select (d)irectory or (f)ile: ").strip().lower()
-    if choice == 'd':
-        from tkinter.filedialog import askdirectory
-        return askdirectory(title="Select Directory")
-    elif choice == 'f':
-        from tkinter.filedialog import askopenfilename
-        return askopenfilename(
-            title="Select CZI Image",
-            filetypes=[("CZI files", "*.czi")]
-        )
-    else:
-        print("Invalid choice. Please enter 'd' or 'f'.")
-        return None
+    channels = []
 
-def draw_circles_and_display(image, circles):
-    if not debug:
-        return  # Skip plotting if debug is False
+    try:
+        with czifile.CziFile(file_path) as czi:
+            xml_string = czi.metadata()
+        root = ET.fromstring(xml_string)
 
-    # Determine the scaling factor
-    max_dimension = 800
-    h, w = image.shape[:2]
-    scale = min(max_dimension / h, max_dimension / w)
+        # Get actual acquired image channels
+        channel_nodes = root.findall(".//{*}Information/{*}Image/{*}Dimensions/{*}Channels/{*}Channel")
 
-    # Resize the image to fit within the 800x800 box
-    resized_image = cv2.resize(image, (int(w * scale), int(h * scale)))
+        for ch in channel_nodes:
 
-    # Create a figure and axis with matplotlib
-    fig, ax = plt.subplots()
-    ax.imshow(resized_image, cmap='gray')
+            name = ch.attrib.get("Name")
 
-    # Draw the circles and labels
-    for x, y, r in circles:
-        # Scale the circle positions and radius
-        x = int(x * scale)
-        y = int(y * scale)
-        r = int(r * scale)
+            if name:
+                channels.append(name)
 
-        # Draw the circle as a patch
-        circle_patch = patches.Circle((x, y), r, edgecolor='red', facecolor='none', linewidth=2)
-        ax.add_patch(circle_patch)
+    except Exception as e:
+        print("Could not read channel names:", e)
 
-        # Draw the centroid
-        ax.plot(x, y, 'go', markersize=5)  # Green dot for centroid
-        # Label the centroid with its coordinates
-        label = f"({x},{y},{r})"
-        ax.text(x + 11, y - r, label, color='white', fontsize=8, ha='right')
-
-    # Set the aspect of the plot to be equal
-    ax.set_aspect('equal')
-
-    # Add grid lines
-    ax.grid(True)
-
-    # Display the result with interactive zoom
-    plt.title("Detected Circles")
-    plt.show()
+    return channels
 
 def remove_outliers(circles):
     # Extract x, y, and r lists
@@ -310,25 +228,17 @@ def remove_outliers(circles):
     
     X_final = np.delete(X, to_remove)
     Y_final = np.delete(Y, to_remove)
-    
-    if debug:
-        # Plot points and annotate distances
-        plt.figure(figsize=(10, 8))
-        plt.plot(X_final, Y_final, 'go', label='Valid Points')
-        if to_remove:
-            plt.plot(X[to_remove], Y[to_remove], 'ro', label='Removed Points')
-        
-        for i in range(len(X)):
-            plt.text(X[i], Y[i], f'{round(nearest_distances[i])}', fontsize=9, ha='right', color='blue')
-        
-        plt.xlabel('X Coordinate')
-        plt.ylabel('Y Coordinate')
-        plt.title('Circle Centers with Nearest Neighbor Distances')
-        plt.legend()
-        plt.grid(True)
-        plt.show()
 
-    return (X_final,Y_final,np.repeat(meanR,len(X_final))), ((X[to_remove], Y[to_remove], np.repeat(meanR,len(X[to_remove])))), nd_mean
+    plot_data = {
+        "X": X,
+        "Y": Y,
+        "X_final": X_final,
+        "Y_final": Y_final,
+        "to_remove": to_remove,
+        "nearest_distances": nearest_distances
+    }
+
+    return (X_final,Y_final,np.repeat(meanR,len(X_final))), ((X[to_remove], Y[to_remove], np.repeat(meanR,len(X[to_remove])))), nd_mean, plot_data
 
 def fill_missing_points(circles, nd_mean):
     X, Y, R = circles
@@ -375,21 +285,13 @@ def fill_missing_points(circles, nd_mean):
 
     combined_R = np.concatenate((R, np.array([c[2] for c in new_circles])))
 
-    if debug:
-        # Plot the result
-        plt.figure(figsize=(10, 8))
-        plt.plot(X, Y, 'go', label='Original Circles')
-        if new_circles:
-            plt.plot([c[0] for c in new_circles], [c[1] for c in new_circles], 'bo', label='Added Circles')
-        
-        plt.xlabel('X Coordinate')
-        plt.ylabel('Y Coordinate')
-        plt.title('Detected and Added Circles')
-        plt.legend()
-        plt.grid(True)
-        plt.show()
+    miss_plot_data = {
+            "X": X,
+            "Y": Y,
+            "new_circles": new_circles,
+        }
 
-    return (X,Y,np.repeat(R[0],len(X))), (new_circles)
+    return (X,Y,np.repeat(R[0],len(X))), (new_circles), miss_plot_data
 
 def plot_final_register(brightfield_image, circles, added, removed):
     if not show_final_registration:
@@ -457,7 +359,6 @@ def plot_final_register(brightfield_image, circles, added, removed):
     plt.title("Final Circle Registration")
     plt.show()
 
-
 def show_histogram_slider(image, title="Fluorescence Image"):
     """Display a fluorescence image with an interactive histogram range slider."""
     image = np.asarray(image, dtype=np.float32)
@@ -514,7 +415,7 @@ def show_histogram_slider(image, title="Fluorescence Image"):
     slider_max.on_changed(update)
 
     plt.tight_layout()
-    plt.show()
+    #plt.show()
 
 
 def snake_circles(organized_circles):
@@ -552,9 +453,11 @@ def snake_circles(organized_circles):
     
     return organized_circles_with_snake
 
-def quantify_fluorescence(file_path, circles):
+def quantify_fluorescence(file_path, circles, log_callback=None):
     with czifile.CziFile(file_path) as czi:
         image = czi.asarray()
+        roi_plot_data = []
+
         if debug:
             print(f"Image shape: {image.shape}")  # Print the shape for debugging
         
@@ -588,22 +491,27 @@ def quantify_fluorescence(file_path, circles):
             else:
                 fluorescence_image = image[:, :, 0] if num_dimensions == 3 else image[0, 0, :, :, 0]
 
+            plot_image = fluorescence_image.copy()
+
             # Check and print the shape of the fluorescence image to ensure it matches expectations
             if debug:
                 print(f"Fluorescence Image Shape (Channel {channel + 1}): {fluorescence_image.shape}")
             else:
                 print(f"Processing Channel {channel + 1}...")
 
+            if log_callback:
+                log_callback(f"Processing Channel {channel + 1}/{num_channels}")
+
             # Prepare to store ROI and background averages
             channel_averages = []
-            
+            channel_roi_data = []
             for x, y, r, idx in zip(circles[0], circles[1], circles[2], circles[5]):
                 # Define the ROI and background boundaries
-                global roi_inner
-                if roi_inner <= -r:
-                    roi_inner = -r
+                local_roi_inner = roi_inner
+                if local_roi_inner <= -r:
+                    local_roi_inner = -r
                 outer_radius = r + roi_outer
-                inner_radius = r + roi_inner
+                inner_radius = r + local_roi_inner
                 background_outer_radius = r + bckg_outer
                 background_inner_radius = r + bckg_inner
 
@@ -633,158 +541,29 @@ def quantify_fluorescence(file_path, circles):
 
                 corrected_fluorescence = average_fluorescence - average_background
                 channel_averages.append((idx, corrected_fluorescence))
+
+                channel_roi_data.append({
+                    "x": x,
+                    "y": y,
+                    "roi_outer": outer_radius,
+                    "roi_inner": inner_radius,
+                    "background_outer": background_outer_radius,
+                    "background_inner": background_inner_radius,
+                    "index": idx
+                })
                 
-                # Draw the ROI and background boundaries on the fluorescence image for visualization
-                cv2.circle(fluorescence_image, (int(x), int(y)), int(round(outer_radius, 0)), (0, bitdepth, 0), 1)
-                cv2.circle(fluorescence_image, (int(x), int(y)), int(round(inner_radius, 0)), (0, bitdepth, 0), 1)
-                cv2.circle(fluorescence_image, (int(x), int(y)), int(round(background_outer_radius, 0)), (bitdepth, 0, 0), 1, 2)
-                cv2.circle(fluorescence_image, (int(x), int(y)), int(round(background_inner_radius, 0)), (bitdepth, 0, 0), 1, 2)
-            
             # Store the averages for this channel
             fluorescence_averages.append(channel_averages)
-            
-            if show_if_images:
-                show_histogram_slider(fluorescence_image, title=f'Fluorescence Channel {channel + 1}')
-                # Display the fluorescence image with ROIs and background
-                plt.figure(figsize=(10, 8))
-                plt.imshow(fluorescence_image, cmap='gray')
-                plt.title(f'Fluorescence Channel {channel + 1} with ROIs and Background')
-                plt.show()
-        if debug:
-            # Plot average fluorescence against snake_index
-            plt.figure(figsize=(12, 10))
-            for channel, averages in enumerate(fluorescence_averages):
-                indices, values = zip(*averages)  # Unzip indices and values
-                plt.subplot(num_channels, 1, channel + 1)
-                plt.plot(indices, values, 'go', label=f'Channel {channel + 1}')
-                plt.xlabel('Snake Index')
-                plt.ylabel('Corrected Average Fluorescence')
-                plt.title(f'Corrected Average Fluorescence vs. Snake Index for Channel {channel + 1}')
-                plt.legend()
 
-            plt.tight_layout()
-            plt.show()
+            roi_plot_data.append({
+                "channel": channel + 1,
+                "image": plot_image,
+                "circles": channel_roi_data
+            })
 
-        return np.array(fluorescence_averages)
+        return np.array(fluorescence_averages), roi_plot_data
 
-def fancy_plot(fluorescence_averages):
-    from scipy.ndimage import uniform_filter1d
-    from scipy.signal import find_peaks
-
-    avg_values = []  # List to store average values for each channel
-
-    def remove_outliers(data, window_size = moving_avg_n):
-        cleaned_data = []
-        outlier_flags = []
-        half_window = window_size // 2
-
-        for i in range(len(data)):
-            # Define the window around the current point
-            start = max(0, i - half_window)
-            end = min(len(data), i + half_window)
-            window = data[start:end]
-
-
-            # Calculate Q1, Q3, and IQR
-            q1 = np.percentile(window, 25)
-            q3 = np.percentile(window, 75)
-            iqr = q3 - q1
-            lower_bound = q1 - 1.5 * iqr
-            upper_bound = q3 + 1.5 * iqr
-
-            # Check if the current point is an outlier
-            if lower_bound <= data[i] <= upper_bound:
-                cleaned_data.append(data[i])
-                outlier_flags.append(False)
-            else:
-                cleaned_data.append(np.nan)
-                outlier_flags.append(True)
-
-        # Optionally, interpolate to fill NaNs
-        cleaned_data = np.array(cleaned_data)
-        not_nan = ~np.isnan(cleaned_data)
-        indices = np.arange(len(cleaned_data))
-        cleaned_data = np.interp(indices, indices[not_nan], cleaned_data[not_nan])
-
-        return cleaned_data, outlier_flags
-
-    plt.figure(figsize=(12, 10))
-
-    for channel, averages in enumerate(fluorescence_averages):
-        # Sort the averages by snake index
-        averages_sorted = sorted(averages, key=lambda x: x[0])
-        indices, values = zip(*averages_sorted)
-
-        # Remove outliers and get outlier flags
-        cleaned_values, outlier_flags = remove_outliers(values)
-
-        # Apply a moving average with a window of 10 points
-        smoothed_values = uniform_filter1d(cleaned_values, size=moving_avg_n)
-
-        # Identify significant peaks
-        peaks, properties = find_peaks(
-            smoothed_values,
-            height=np.mean(smoothed_values) + 1 * np.std(smoothed_values),
-            threshold=0.5,
-            distance=15
-        )
-
-        # Plot the cleaned data and outliers
-        plt.subplot(len(fluorescence_averages), 1, channel + 1)
-        for i, (index, value) in enumerate(zip(indices, values)):
-            if outlier_flags[i]:
-                plt.plot(index, value, 'yo', alpha=0.5)  # Outliers in yellow
-            else:
-                plt.plot(index, value, 'go', alpha=0.5)  # Cleaned data in green
-
-        # Plot the smoothed data
-        plt.plot(indices, smoothed_values, 'b-', label=f'Smoothed Channel {channel + 1}')
-        
-        # Mark the peaks
-        plt.plot(np.array(indices)[peaks], smoothed_values[peaks], "ro", label='Peaks', alpha=0.5)
-
-        # Annotate each peak with its index and height
-        for peak in peaks:
-            plt.text(
-                indices[peak], smoothed_values[peak],
-                f'{indices[peak]:.1f}\n{smoothed_values[peak]:.2f}',
-                fontsize=8,
-                ha='right',
-                color='red'
-            )
-
-        # Calculate and plot the average value
-        avg_value = np.mean(cleaned_values)
-        avg_values.append((channel + 1, avg_value))  # Store channel and avg_value
-        plt.axhline(y=avg_value, color='black', linestyle='--', linewidth=1, label='Average')
-        plt.text(
-            indices[-1], avg_value,
-            f'Avg: {avg_value:.2f}',
-            fontsize=8,
-            color='black',
-            ha='right',
-            va='bottom'
-        )
-        
-        plt.xlabel('Snake Index')
-        plt.ylabel('Corrected Average Fluorescence')
-        plt.title(f'Corrected Average Fluorescence with Peaks for Channel {channel + 1}')
-        plt.legend()
-
-    plt.tight_layout()
-    if show_plots:
-        plt.show()
-
-    # Print all average values to the command line
-    print("\nAverage Fluorescence Values:")
-    for channel, avg_value in avg_values:
-        print(f"Channel {channel}: {avg_value:.2f}")
-
-    print("\n-------------------------------------------------\n")
-
-    return avg_values  # Return the average values for further use
-
-def quantify_fluorescence_single(file_path, circle):
+def quantify_fluorescence_single(file_path, circle, log_callback=None):
     """
     Quantify fluorescence for a single electrode (non-array mode).
     circle: (x, y, r) tuple for the single detected electrode.
@@ -793,6 +572,7 @@ def quantify_fluorescence_single(file_path, circle):
     x, y, r = circle
     with czifile.CziFile(file_path) as czi:
         image = czi.asarray()
+
         if debug:
             print(f"Image shape: {image.shape}")
 
@@ -807,6 +587,7 @@ def quantify_fluorescence_single(file_path, circle):
         else:
             raise ValueError("Unexpected image dimensions.")
 
+        roi_plot_data = []
         channel_results = []  # list of (channel_num, corrected_fluorescence)
 
         for channel in range(num_channels):
@@ -819,6 +600,10 @@ def quantify_fluorescence_single(file_path, circle):
                 print(f"Fluorescence Image Shape (Channel {channel + 1}): {fluorescence_image.shape}")
             else:
                 print(f"Processing Channel {channel + 1}...")
+
+
+            if log_callback:
+                log_callback(f"Processing Channel {channel + 1}/{num_channels}")
 
             global roi_inner
             _roi_inner = roi_inner
@@ -846,123 +631,333 @@ def quantify_fluorescence_single(file_path, circle):
             average_background = np.mean(background_values) if background_values.size > 0 else np.nan
             corrected_fluorescence = average_fluorescence - average_background
 
+            roi_plot_data.append({
+                "channel": channel + 1,
+                "image": fluorescence_image.copy(),
+                "circles": [{
+                    "x": x,
+                    "y": y,
+                    "r": r,
+                    "roi_outer": outer_radius,
+                    "roi_inner": inner_radius,
+                    "background_outer": background_outer_radius,
+                    "background_inner": background_inner_radius,
+                    "index": 0
+                }]
+            })
+
             channel_results.append((channel + 1, corrected_fluorescence))
 
-            if show_if_images:
-                show_histogram_slider(fluorescence_image, title=f'Fluorescence Channel {channel + 1}')
-                # Annotate and display the fluorescence image
-                display_image = fluorescence_image.copy().astype(np.float32)
-                display_image_annotated = cv2.cvtColor(
-                    cv2.normalize(display_image, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8),
-                    cv2.COLOR_GRAY2BGR
-                )
-                cv2.circle(display_image_annotated, (int(x), int(y)), int(round(outer_radius, 0)), (0, 255, 0), 1)
-                cv2.circle(display_image_annotated, (int(x), int(y)), int(round(inner_radius, 0)), (0, 255, 0), 1)
-                cv2.circle(display_image_annotated, (int(x), int(y)), int(round(background_outer_radius, 0)), (255, 0, 0), 2)
-                cv2.circle(display_image_annotated, (int(x), int(y)), int(round(background_inner_radius, 0)), (255, 0, 0), 2)
-
-                plt.figure(figsize=(6, 6))
-                plt.imshow(display_image_annotated)
-                plt.title(f'Single Electrode – Channel {channel + 1}\n'
-                          f'ROI (green), Background (red)\n'
-                          f'Corrected fluorescence: {corrected_fluorescence:.2f}')
-                plt.axis('off')
-                plt.tight_layout()
-                plt.show()
-
-        return channel_results
+        return channel_results, roi_plot_data
 
 
 def plot_single_electrode(channel_results):
     """
-    Bar plot of corrected fluorescence per channel for a single electrode.
-    Returns list of (channel, avg_value) matching the array-mode signature.
+    Returns fluorescence data only.
+    Plotting is handled by GUI.
     """
-    channels = [c for c, _ in channel_results]
-    values   = [v for _, v in channel_results]
-
-    if show_plots:
-        plt.figure(figsize=(max(4, len(channels) * 1.5), 5))
-        bars = plt.bar(channels, values, color='steelblue', edgecolor='black')
-        for bar, val in zip(bars, values):
-            plt.text(bar.get_x() + bar.get_width() / 2, bar.get_height(),
-                     f'{val:.2f}', ha='center', va='bottom', fontsize=10)
-        plt.xlabel('Channel')
-        plt.ylabel('Corrected Average Fluorescence')
-        plt.title('Single Electrode – Corrected Fluorescence per Channel')
-        plt.xticks(channels)
-        plt.tight_layout()
-        plt.show()
 
     print("\nSingle Electrode Fluorescence Values:")
+
     for ch, val in channel_results:
         print(f"  Channel {ch}: {val:.2f}")
+
     print("\n-------------------------------------------------\n")
 
-    # Return in same format as fancy_plot for unified CSV saving
     return [(ch, val) for ch, val in channel_results]
 
+def get_channel_name(channel, channel_names):
+    if 1 <= channel <= len(channel_names):
+        return channel_names[channel - 1]
+    return f"Channel {channel}"
 
-if __name__ == "__main__":
-    path = select_path()
-    if path:
-        if path.endswith(".czi"):  # Single file selected
+def fancy_plot(fluorescence_averages):
+    from scipy.ndimage import uniform_filter1d
+    from scipy.signal import find_peaks
+
+    avg_values = []  # List to store average values for each channel
+    plot_data = []
+
+    def remove_outliers(data, window_size = moving_avg_n):
+        cleaned_data = []
+        outlier_flags = []
+        half_window = window_size // 2
+
+        for i in range(len(data)):
+            # Define the window around the current point
+            start = max(0, i - half_window)
+            end = min(len(data), i + half_window)
+            window = data[start:end]
+
+            # Calculate Q1, Q3, and IQR
+            q1 = np.percentile(window, 25)
+            q3 = np.percentile(window, 75)
+            iqr = q3 - q1
+            lower_bound = q1 - 1.5 * iqr
+            upper_bound = q3 + 1.5 * iqr
+
+            # Check if the current point is an outlier
+            if lower_bound <= data[i] <= upper_bound:
+                cleaned_data.append(data[i])
+                outlier_flags.append(False)
+            else:
+                cleaned_data.append(np.nan)
+                outlier_flags.append(True)
+
+        # Optionally, interpolate to fill NaNs
+        cleaned_data = np.array(cleaned_data)
+        not_nan = ~np.isnan(cleaned_data)
+        indices = np.arange(len(cleaned_data))
+        cleaned_data = np.interp(indices, indices[not_nan], cleaned_data[not_nan])
+
+        return cleaned_data, outlier_flags
+
+    for channel, averages in enumerate(fluorescence_averages):
+        # Sort the averages by snake index
+        averages_sorted = sorted(averages, key=lambda x: x[0])
+        indices, values = zip(*averages_sorted)
+
+        # Remove outliers and get outlier flags
+        cleaned_values, outlier_flags = remove_outliers(values)
+
+        # Apply a moving average with a window of 10 points
+        smoothed_values = uniform_filter1d(cleaned_values, size=moving_avg_n)
+
+        # Identify significant peaks
+        peaks, properties = find_peaks(
+            smoothed_values,
+            height=np.mean(smoothed_values) + 1 * np.std(smoothed_values),
+            threshold=0.5,
+            distance=15
+        )
+
+        # Calculate and plot the average value
+        avg_value = np.mean(cleaned_values)
+        avg_values.append((channel + 1, avg_value))  # Store channel and avg_value
+
+        plot_data.append({
+            "channel": channel + 1,
+            "indices": np.array(indices),
+            "values": np.array(values),
+            "cleaned_values": cleaned_values,
+            "outlier_flags": outlier_flags,
+            "smoothed_values": smoothed_values,
+            "peaks": peaks,
+            "avg_value": avg_value,
+        })
+
+    # Print all average values to the command line
+    print("\nAverage Fluorescence Values:")
+    for channel, avg_value in avg_values:
+        print(f"Channel {channel}: {avg_value:.2f}")
+
+    print("\n-------------------------------------------------\n")
+
+    return avg_values, plot_data # Return the average values for further use
+
+def calculate_average_values(fluorescence_averages, moving_avg_n):
+
+    avg_values=[]
+
+    for channel, averages in enumerate(fluorescence_averages):
+
+        values=[x[1] for x in averages]
+
+        avg=np.mean(values)
+
+        avg_values.append(
+            (channel+1, avg)
+        )
+
+    return avg_values
+
+def run_pipeline(config, progress_callback=None, log_callback=None, cancel_event=None):
+
+        global debug
+        global show_final_registration
+        global show_if_images
+        global show_plots
+
+        global is_array
+        global min_diameter
+        global max_diameter
+        global roi_inner
+        global roi_outer
+        global bckg_inner
+        global bckg_outer
+        global moving_avg_n
+        global p1
+        global p2
+        global dp
+
+
+        # For GUI: Logs which chip configuration is selected
+
+        print("\nSelected configuration:")
+        for key, value in config.items():
+            print(f"{key}: {value}")
+        print()
+
+        if log_callback:
+
+            log_callback("")
+            log_callback("=" * 50)
+            log_callback("CONFIGURATION")
+            log_callback("=" * 50)
+
+            for key, value in config.items():
+
+                log_callback(
+                    f"{key}: {value}"
+                )
+
+            log_callback("")
+
+        # Load GUI settings
+        show_plots = config.get("show_plots", False)
+        debug = config.get("debug", False)
+        show_final_registration = config.get("show_final_registration", False)
+        show_if_images = config.get("show_if_images", False)
+        
+        # Load preset values
+        is_array = config.get("is_array", False)
+        min_diameter = int(config.get("min_diameter", 20))
+        max_diameter = int(config.get("max_diameter", 30))
+        roi_inner = int(config.get("roi_inner", -9))
+        roi_outer = int(config.get("roi_outer", 2))
+        bckg_inner = int(config.get("bckg_inner", 55))
+        bckg_outer = int(config.get("bckg_outer", 100))
+        moving_avg_n = int(config.get("moving_avg_n", 2))
+        p1 = float(config.get("p1", 50))
+        p2 = float(config.get("p2", 10))
+        dp = float(config.get("dp", 1))
+        path = config["path"]
+
+        if path.endswith(".czi"):
             file_paths = [path]
-        else:  # Directory selected
-            file_paths = [os.path.join(path, f) for f in os.listdir(path) if f.endswith(".czi")]
 
-        all_avg_values = []  # Collect all average fluorescence values
-        total_files = len(file_paths)  # Total number of files to process
+        else:
+            file_paths = [
+                os.path.join(path, f)
+                for f in os.listdir(path)
+                if f.endswith(".czi")
+            ]
+
+        results = []
+
+        total_files = len(file_paths)
 
         for i, file_path in enumerate(file_paths, start=1):
+
+            added = None
+            removed = None
+            snaked_circles = None
+            outlier_plot_data = None
+            missing_plot_data = None
+            single_circle = None
+            figures = []
+
+            channel_names = get_czi_channel_names(file_path)
+            print("Detected Channels:")
+            for name in channel_names:
+                print(name)
+
+            if log_callback:
+                log_callback("")
+                log_callback("=" * 50)
+                log_callback(
+                    f"PROCESSING FILE {i}/{total_files}"
+                )
+                log_callback("=" * 50)
+
+                log_callback(
+                    os.path.basename(file_path)
+                )
+
+            if cancel_event and cancel_event.is_set():
+                print("Cancelled Processing")
+                break
+
             print(f"Processing file {i}/{total_files}: {file_path}")
+
+
             brightfield_image, circles = process_czi_image(file_path, min_diameter, max_diameter)
-            draw_circles_and_display(brightfield_image, circles)
+
+            if len(circles) == 0:
+                raise ValueError(f"No circles were detected in: \n {os.path.basename(file_path)}")
 
             if is_array:
-                # --- Array mode: full pipeline ---
-                circles, removed, nd_mean = remove_outliers(circles)
-                circles, added = fill_missing_points(circles, nd_mean)
+
+                circles, removed, nd_mean, outlier_plot_data = remove_outliers(circles)
+
+                circles, added, missing_plot_data = fill_missing_points(circles, nd_mean)
+
                 organized_circles = organize_circles(circles, nd_mean)
+
                 snaked_circles = snake_circles(organized_circles)
-                plot_final_register(brightfield_image, snaked_circles, added, removed)
-                fluorescence_averages = quantify_fluorescence(file_path, snaked_circles)
-                avg_values = fancy_plot(fluorescence_averages)
+
+                fluorescence_averages, roi_plot_data = quantify_fluorescence(file_path, snaked_circles, log_callback)
+
+                avg_values, fancy_plot_data = fancy_plot(fluorescence_averages)
+
+                named_avg_values = []
+
+                for channel, value in avg_values:
+
+                    name = get_channel_name(channel, channel_names)
+                    named_avg_values.append((name, value))
+
             else:
-                # --- Single electrode mode ---
+
                 if len(circles) == 0:
-                    print(f"  WARNING: No electrode detected in {file_path}. Skipping.")
+                    print(f"No electrode detected in {file_path}")
                     continue
-                if len(circles) > 1:
-                    print(f"  WARNING: {len(circles)} circles detected; using the first one. "
-                          f"Consider adjusting min/max_diameter or HoughCircles parameters.")
-                single_circle = (circles[0][0], circles[0][1], circles[0][2])  # x, y, r
-                if debug:
-                    print(f"  Using circle: x={single_circle[0]}, y={single_circle[1]}, r={single_circle[2]}")
-                channel_results = quantify_fluorescence_single(file_path, single_circle)
+
+                single_circle = (circles[0][0], circles[0][1], circles[0][2])
+
+                channel_results, roi_plot_data = quantify_fluorescence_single(file_path, single_circle, log_callback)
+
                 avg_values = plot_single_electrode(channel_results)
+                
+                named_avg_values = []
 
-            all_avg_values.append((file_path, avg_values))
+                for channel, value in avg_values:
 
-        # Display all average fluorescence values together
-        print("\nSummary of Average Fluorescence Values:")
-        for file_path, avg_values in all_avg_values:
-            print(f"File: {file_path}")
-            for channel, avg_value in avg_values:
-                print(f"  Channel {channel}: {avg_value:.2f}")
+                    name = get_channel_name(channel, channel_names)
 
-        # Ask user if they want to save the summary as a CSV
-        save_csv = input("\nSave summary as CSV file? (y/n): ").strip().lower()
-        if save_csv == 'y':
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")  # Generate timestamp
-            output_dir = path if not path.endswith(".czi") else os.path.dirname(path)
-            output_file = os.path.join(output_dir, f"summary_{timestamp}.csv")  # Add timestamp to filename
-            with open(output_file, mode='w', newline='') as csvfile:
-                csv_writer = csv.writer(csvfile)
-                csv_writer.writerow(["File", "Channel", "Average Fluorescence"])
-                for file_path, avg_values in all_avg_values:
-                    for channel, avg_value in avg_values:
-                        csv_writer.writerow([file_path, channel, avg_value])
-            print(f"Summary saved to {output_file}")
-    else:
-        print("No valid path selected.")
+                    named_avg_values.append((name, value))
+
+            results.append(
+                ProcessingResult(
+                    file_path=file_path,
+                    channel_names=channel_names,
+                    avg_values=named_avg_values,
+                    fluorescence_averages=fluorescence_averages if is_array else None,
+                    brightfield_image=brightfield_image,
+                    circles=circles,
+                    snaked_circles=snaked_circles if is_array else None,
+                    single_circle=single_circle if not is_array else None,
+                    added=added if is_array else None,
+                    removed=removed if is_array else None,
+                    outlier_plot_data=outlier_plot_data if is_array else None,
+                    missing_plot_data=missing_plot_data if is_array else None,
+                    fancy_plot_data=fancy_plot_data if is_array else None,
+                    roi_plot_data=roi_plot_data, 
+                )
+
+            )
+
+            # send progress to GUI
+            if progress_callback:
+                progress_callback(i, total_files, file_path)
+
+            if log_callback:
+                log_callback(f"Completed file {i}/{total_files}: {os.path.basename(file_path)}")
+
+        if debug: 
+            print("Number of results:", len(results))
+            print(results)
+
+        return results
+
+

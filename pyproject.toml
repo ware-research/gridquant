@@ -4,4 +4,13 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "czifile==2019.7.2.3",
+    "markdown>=3.10.2",
+    "matplotlib>=3.11.1",
+    "numpy>=2.5.1",
+    "opencv-python>=5.0.0.93",
+    "pathlib>=1.0.1",
+    "pip>=26.1.2",
+    "scipy>=1.18.0",
+]
