@@ -1494,7 +1494,7 @@ class App:
         self.root.update_idletasks()
         try:
             if self.processor is None:
-                from gridquant_V2_0 import run_pipeline
+                from GQSupport_V2_0 import run_pipeline
             else:
                 run_pipeline = self.processor.run_pipeline
 
