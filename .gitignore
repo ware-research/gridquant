@@ -1,0 +1,4 @@
+*.venv
+*.toml
+*.lock
+.DS_Store

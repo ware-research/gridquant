@@ -1,1 +1,1 @@
-uv run gridquant_v2_1.py
+uv run run.py
