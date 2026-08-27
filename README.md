@@ -20,7 +20,9 @@ Other dependencies (generally included in standard python installations):
 This software is used to quantify images with fluorescence signals in a regular quare grid. Presets are included for imaging C2-C5 DEP chips manufactured at Oregon Health & Science University by the laboratory of Dr. Stuart Ibsen. Presets also include the use of Zeiss microscopes with a 5x obsective imaged using an Zeiss Axiocam 506 or Kinetix22 camera. Additional presets can be configurated in the user defined settings.
 ##General Usage:
 Save images as CZI files.
-run the .py script
+
+run the run.py script
+
 input selection into command prompt window and press enter
 - inputting "f" allows the user to select a single file
 - inputting "d" allows the user to select a directory. Any .czi files in any subdirectory will be opened and analyzed. Progress is shown when each file is loaded.

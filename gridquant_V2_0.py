@@ -3,7 +3,7 @@ MIT License
 
 Copyright (c) 2024, Oregon Health & Science Univeristy
 
-Contributor(s): Jason Ware (warej@ohsu.edu)
+Contributor(s): Christian Ross, Jason Ware (warej@ohsu.edu)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
