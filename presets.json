@@ -53,15 +53,15 @@
     },
     "b3_axio": {
         "is_array": false,
-        "min_diameter": 42,
-        "max_diameter": 47,
+        "min_diameter": 35,
+        "max_diameter": 40,
         "roi_inner": -15,
         "roi_outer": 4,
         "bckg_inner": 85,
         "bckg_outer": 160,
         "moving_avg_n": 2,
-        "p1": 50,
-        "p2": 10,
+        "p1": 50.0,
+        "p2": 10.0,
         "dp": 1.0
     },
     "d1_kinetix": {
@@ -88,6 +88,19 @@
         "moving_avg_n": 10,
         "p1": 50.0,
         "p2": 20.0,
+        "dp": 1.0
+    },
+    "w96_axio": {
+        "is_array": false,
+        "min_diameter": 35,
+        "max_diameter": 42,
+        "roi_inner": -15,
+        "roi_outer": 4,
+        "bckg_inner": 51,
+        "bckg_outer": 146,
+        "moving_avg_n": 2,
+        "p1": 15.0,
+        "p2": 10.0,
         "dp": 1.0
     }
 }
